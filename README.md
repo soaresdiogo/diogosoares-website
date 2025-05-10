@@ -1,4 +1,4 @@
-# Diogo Soares • Personal Links
+# Diogo Soares • Bio Links
 
 This is the personal website of **Diogo Soares**, a developer, tech lead, and coffee enthusiast. It contains links to various platforms where you can connect with or learn more about Diogo.
 
