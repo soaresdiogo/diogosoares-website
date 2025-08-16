@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+    <title>Calculadora de Milheiro - Milhas Aéreas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Animations for the toast */
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        .toast-enter { animation: slideIn 0.3s ease-out; }
+        .toast-exit { animation: slideOut 0.3s ease-out; }
+
+        /* Loading animation */
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #FFFFFF; /* White spinner color to contrast with the button */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Adjustment for number inputs */
+        input[type='number'] { -moz-appearance: textfield; }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen font-sans">
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <header class="bg-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-plane-departure text-indigo-600 text-3xl"></i>
+                    <h1 class="text-2xl font-bold text-gray-800">Calculadora de Milheiro</h1>
+                </div>
+                <button onclick="showTutorial()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+                    <i class="fas fa-question-circle mr-2"></i>Como funciona?
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div id="tutorialModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative">
+            <button onclick="closeTutorial()" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📚 Como funciona o cálculo do milheiro?</h2>
+            <div class="space-y-4 text-gray-700">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h3 class="font-semibold text-lg mb-2">🎯 O que é o milheiro?</h3>
+                    <p>O milheiro é o <strong>custo de cada 1.000 milhas</strong> que você acumulou. Saber esse valor é o passo mais importante para decidir se uma promoção ou uma passagem em milhas realmente vale a pena.</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h3 class="font-semibold text-lg mb-2">💡 Como calcular?</h3>
+                    <p>A fórmula é: <strong>(Soma de todos os seus gastos em R$) ÷ (Total de milhas que você gerou / 1.000)</strong>.</p>
+                    <p class="mt-2">Nossa calculadora faz isso por você! Apenas preencha seus custos (assinaturas, compra de milhas) e seus acúmulos (milhas do clube, cartão, compras), e nós te damos o valor final, já considerando os bônus de transferência.</p>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded-lg">
+                    <h3 class="font-semibold text-lg mb-2">✈️ E a passagem, vale a pena?</h3>
+                    <p>Na aba "Comparador de Passagens", você usa o seu custo do milheiro para descobrir o preço real da passagem em R$. Se esse valor for <strong>menor que o preço da passagem em dinheiro</strong>, você fez um ótimo negócio!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-xl shadow-lg mb-6">
+            <nav class="flex flex-wrap border-b">
+                <button onclick="switchTab('calculator')" id="tab-calculator" class="tab-btn px-6 py-3 font-semibold text-indigo-600 border-b-2 border-indigo-600">
+                    <i class="fas fa-calculator mr-2"></i>Calculadora
+                </button>
+                <button onclick="switchTab('comparator')" id="tab-comparator" class="tab-btn px-6 py-3 font-semibold text-gray-600 hover:text-indigo-600">
+                    <i class="fas fa-balance-scale mr-2"></i>Comparador de Passagens
+                </button>
+                <button onclick="switchTab('history')" id="tab-history" class="tab-btn px-6 py-3 font-semibold text-gray-600 hover:text-indigo-600">
+                    <i class="fas fa-history mr-2"></i>Histórico
+                </button>
+            </nav>
+        </div>
+
+        <div id="content-calculator" class="tab-content">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-edit text-indigo-500 mr-3"></i>Preencha os dados abaixo
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-2"><i class="fas fa-dollar-sign text-red-500 mr-2"></i>Seus Gastos (R$)</h3>
+                        <div>
+                            <label for="club-cost" class="block text-sm font-medium text-gray-700 mb-1">Assinatura Anual do Clube</label>
+                            <div class="relative"><span class="absolute left-3 top-2.5 text-gray-500">R$</span><input type="number" id="club-cost" placeholder="502.80" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"></div>
+                        </div>
+                        <div>
+                            <label for="purchase-cost-per-thousand" class="block text-sm font-medium text-gray-700 mb-1">Valor pago por milheiro (na compra)</label>
+                             <div class="relative"><span class="absolute left-3 top-2.5 text-gray-500">R$</span><input type="number" id="purchase-cost-per-thousand" placeholder="35.00" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"></div>
+                        </div>
+                         <div>
+                            <label for="other-costs" class="block text-sm font-medium text-gray-700 mb-1">Outros Custos (anuidade, etc)</label>
+                             <div class="relative"><span class="absolute left-3 top-2.5 text-gray-500">R$</span><input type="number" id="other-costs" placeholder="0.00" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"></div>
+                        </div>
+
+                        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-2 pt-4"><i class="fas fa-star text-yellow-500 mr-2"></i>Suas Milhas Acumuladas</h3>
+                        <div>
+                            <label for="club-miles" class="block text-sm font-medium text-gray-700 mb-1">Milhas geradas pelo Clube</label>
+                            <input type="number" id="club-miles" placeholder="12000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="shopping-miles" class="block text-sm font-medium text-gray-700 mb-1">Milhas (Cartão / Compras Bonificadas)</label>
+                            <input type="number" id="shopping-miles" placeholder="20000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="bought-miles" class="block text-sm font-medium text-gray-700 mb-1">Milhas Compradas</label>
+                            <input type="number" id="bought-miles" placeholder="10000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        
+                        <h3 class="font-semibold text-gray-700 border-b pb-2 mb-2 pt-4"><i class="fas fa-gift text-green-500 mr-2"></i>Bônus de Transferência</h3>
+                        <div>
+                            <label for="transfer-bonus" class="block text-sm font-medium text-gray-700 mb-1">Bônus de Transferência (%)</label>
+                            <div class="relative">
+                                <input type="number" id="transfer-bonus" placeholder="20" value="20" class="w-full pr-10 pl-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                <span class="absolute right-3 top-2.5 text-gray-500">%</span>
+                            </div>
+                        </div>
+                        
+                        <button onclick="calculateCostPerThousand()" id="calculateBtn" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center justify-center text-lg">
+                            <span id="calculateBtnIcon" class="mr-2"><i class="fas fa-calculator"></i></span>
+                            <span id="calculateBtnText">Calcular Milheiro</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div id="resultArea" class="bg-white rounded-xl shadow-lg p-6 hidden">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-chart-line text-green-500 mr-3"></i>Resultado do Cálculo
+                        </h3>
+                        <div id="resultContent" class="space-y-4"></div>
+                    </div>
+                    <div id="resultPlaceholder" class="bg-gray-100 rounded-xl p-8 text-center h-full flex flex-col justify-center items-center">
+                        <i class="fas fa-chart-pie text-gray-400 text-5xl mb-4"></i>
+                        <p class="text-gray-600 font-semibold">Os resultados do cálculo aparecerão aqui</p>
+                        <p class="text-gray-500 text-sm mt-1">Preencha os campos e clique em "Calcular".</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="content-comparator" class="tab-content hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6 max-w-4xl mx-auto">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-balance-scale text-blue-500 mr-3"></i>Compare: Milhas vs Dinheiro
+                </h2>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="ticket-miles" class="block text-sm font-medium text-gray-700 mb-1">Quantidade de Milhas da Passagem</label>
+                            <input type="number" id="ticket-miles" placeholder="63600" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label for="ticket-fees" class="block text-sm font-medium text-gray-700 mb-1">Taxas de Embarque</label>
+                            <div class="relative"><span class="absolute left-3 top-2.5 text-gray-500">R$</span><input type="number" id="ticket-fees" placeholder="197.00" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"></div>
+                        </div>
+                        <div>
+                            <label for="ticket-cash-value" class="block text-sm font-medium text-gray-700 mb-1">Valor da Passagem em Dinheiro</label>
+                             <div class="relative"><span class="absolute left-3 top-2.5 text-gray-500">R$</span><input type="number" id="ticket-cash-value" placeholder="1908.97" class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"></div>
+                        </div>
+                         <div>
+                            <label for="comparator-cost-per-thousand" class="block text-sm font-medium text-gray-700 mb-1">Seu Custo do Milheiro</label>
+                            <div class="relative"><span class="absolute left-3 top-2.5 text-gray-500">R$</span><input type="number" id="comparator-cost-per-thousand" placeholder="Calcule na 1ª aba" class="w-full pl-10 pr-3 py-2 border bg-gray-50 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"></div>
+                        </div>
+                        <button onclick="compareTicket()" id="compareBtn" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition flex items-center justify-center text-lg">
+                             <span id="compareBtnIcon" class="mr-2"><i class="fas fa-search-dollar"></i></span>
+                             <span id="compareBtnText">Analisar Passagem</span>
+                        </button>
+                    </div>
+                    <div class="h-full">
+                        <div id="comparisonResult" class="space-y-4 hidden h-full"></div>
+                        <div id="comparisonPlaceholder" class="bg-gray-100 rounded-xl p-8 text-center h-full flex flex-col justify-center items-center">
+                            <i class="fas fa-balance-scale text-gray-400 text-5xl mb-4"></i>
+                            <p class="text-gray-600 font-semibold">A análise comparativa aparecerá aqui</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="content-history" class="tab-content hidden">
+            <div class="bg-white rounded-xl shadow-lg p-6 max-w-4xl mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-history text-indigo-500 mr-3"></i>Histórico de Cálculos</h2>
+                    <button onclick="clearHistory()" class="text-red-600 hover:text-red-700 font-medium text-sm">
+                        <i class="fas fa-trash mr-2"></i>Limpar Histórico
+                    </button>
+                </div>
+                <div id="historyList" class="space-y-4"></div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        // --- GLOBAL VARIABLES ---
+        let calculationHistory = JSON.parse(localStorage.getItem('milesCostHistory')) || [];
+        let finalCostPerThousand = 0;
+
+        // --- DOM ELEMENTS ---
+        const DOMElements = {
+            // Calculator Inputs
+            clubCost: document.getElementById('club-cost'),
+            purchaseCostPerThousand: document.getElementById('purchase-cost-per-thousand'),
+            otherCosts: document.getElementById('other-costs'),
+            clubMiles: document.getElementById('club-miles'),
+            shoppingMiles: document.getElementById('shopping-miles'),
+            boughtMiles: document.getElementById('bought-miles'),
+            transferBonus: document.getElementById('transfer-bonus'),
+            // Comparator Inputs
+            ticketMiles: document.getElementById('ticket-miles'),
+            ticketFees: document.getElementById('ticket-fees'),
+            ticketCashValue: document.getElementById('ticket-cash-value'),
+            comparatorCostPerThousand: document.getElementById('comparator-cost-per-thousand'),
+            // Buttons
+            calculateBtn: document.getElementById('calculateBtn'),
+            calculateBtnIcon: document.getElementById('calculateBtnIcon'),
+            calculateBtnText: document.getElementById('calculateBtnText'),
+            compareBtn: document.getElementById('compareBtn'),
+            compareBtnIcon: document.getElementById('compareBtnIcon'),
+            compareBtnText: document.getElementById('compareBtnText'),
+            // Result Areas
+            resultArea: document.getElementById('resultArea'),
+            resultContent: document.getElementById('resultContent'),
+            resultPlaceholder: document.getElementById('resultPlaceholder'),
+            comparisonResult: document.getElementById('comparisonResult'),
+            comparisonPlaceholder: document.getElementById('comparisonPlaceholder'),
+            // History
+            historyList: document.getElementById('historyList')
+        };
+        
+        // --- UI FUNCTIONS (MODAL, TOAST, TABS) ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+            const colors = { success: 'bg-green-500', error: 'bg-red-500', info: 'bg-blue-500' };
+            const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle' };
+            
+            const toast = document.createElement('div');
+            toast.id = toastId;
+            toast.className = `${colors[type]} text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 toast-enter min-w-[300px]`;
+            toast.innerHTML = `<i class="fas ${icons[type]} text-xl"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(button => {
+                button.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600');
+                button.classList.add('text-gray-600');
+            });
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            const tabButton = document.getElementById(`tab-${tabName}`);
+            tabButton.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600');
+            tabButton.classList.remove('text-gray-600');
+
+            if (tabName === 'history') loadHistory();
+        }
+
+        function showTutorial() { document.getElementById('tutorialModal').classList.remove('hidden'); }
+        function closeTutorial() { document.getElementById('tutorialModal').classList.add('hidden'); }
+        
+        // --- CALCULATION FUNCTIONS ---
+        const getFloat = (element) => parseFloat(element.value.replace(',', '.')) || 0;
+
+        function calculateCostPerThousand() {
+            // UI: Start Loading
+            DOMElements.calculateBtn.disabled = true;
+            DOMElements.calculateBtnIcon.innerHTML = '<div class="spinner"></div>';
+            DOMElements.calculateBtnText.textContent = 'Calculando...';
+
+            setTimeout(() => {
+                try {
+                    // 1. Get Values
+                    const clubCost = getFloat(DOMElements.clubCost);
+                    const purchaseCostPerThousand = getFloat(DOMElements.purchaseCostPerThousand);
+                    const otherCosts = getFloat(DOMElements.otherCosts);
+                    const clubMiles = getFloat(DOMElements.clubMiles);
+                    const shoppingMiles = getFloat(DOMElements.shoppingMiles);
+                    const boughtMiles = getFloat(DOMElements.boughtMiles);
+                    const transferBonus = getFloat(DOMElements.transferBonus);
+                    
+                    // 2. Calculations
+                    const costOfBoughtMiles = (boughtMiles / 1000) * purchaseCostPerThousand;
+                    const totalCost = clubCost + costOfBoughtMiles + otherCosts;
+                    const totalBaseMiles = clubMiles + shoppingMiles + boughtMiles;
+                    
+                    if (totalBaseMiles === 0) {
+                        showToast('Insira ao menos uma fonte de milhas.', 'error');
+                        throw new Error("Base miles is zero.");
+                    }
+                    
+                    const bonusMiles = totalBaseMiles * (transferBonus / 100);
+                    const totalFinalMiles = totalBaseMiles + bonusMiles;
+                    finalCostPerThousand = (totalFinalMiles > 0) ? totalCost / (totalFinalMiles / 1000) : 0;
+                    
+                    // 3. Build Result Object
+                    const result = {
+                        date: new Date().toLocaleString('pt-BR'), totalCost, totalBaseMiles, transferBonus, 
+                        bonusMiles, totalFinalMiles, costPerThousand: finalCostPerThousand
+                    };
+
+                    // 4. Display and Save
+                    displayResult(result);
+                    saveToHistory(result);
+                    DOMElements.comparatorCostPerThousand.value = finalCostPerThousand.toFixed(2).replace('.', ',');
+                    showToast('Cálculo realizado com sucesso!', 'success');
+
+                } catch (error) {
+                    console.error("Calculation error:", error.message);
+                } finally {
+                    // UI: End Loading
+                    DOMElements.calculateBtn.disabled = false;
+                    DOMElements.calculateBtnIcon.innerHTML = '<i class="fas fa-calculator"></i>';
+                    DOMElements.calculateBtnText.textContent = 'Calcular Milheiro';
+                }
+            }, 500); // Simulate a short delay
+        }
+
+        function compareTicket() {
+             DOMElements.compareBtn.disabled = true;
+             DOMElements.compareBtnIcon.innerHTML = '<div class="spinner"></div>';
+             DOMElements.compareBtnText.textContent = 'Analisando...';
+            
+             setTimeout(() => {
+                 try {
+                    const requiredMiles = getFloat(DOMElements.ticketMiles);
+                    const boardingFees = getFloat(DOMElements.ticketFees);
+                    const cashValue = getFloat(DOMElements.ticketCashValue);
+                    const costPerThousand = getFloat(DOMElements.comparatorCostPerThousand);
+
+                    if (requiredMiles === 0 || cashValue === 0 || costPerThousand === 0) {
+                        showToast('Preencha todos os campos do comparador.', 'error');
+                        throw new Error("Comparator fields are empty.");
+                    }
+
+                    const costInReal = (requiredMiles / 1000) * costPerThousand + boardingFees;
+                    const savings = cashValue - costInReal;
+                    
+                    displayComparison({ costInReal, cashValue, savings });
+
+                } catch(error) {
+                    console.error("Comparison error:", error.message);
+                } finally {
+                    DOMElements.compareBtn.disabled = false;
+                    DOMElements.compareBtnIcon.innerHTML = '<i class="fas fa-search-dollar"></i>';
+                    DOMElements.compareBtnText.textContent = 'Analisar Passagem';
+                }
+            }, 500);
+        }
+
+        // --- DISPLAY FUNCTIONS ---
+        function displayResult(result) {
+            let quality, color, bgColor;
+            if (result.costPerThousand <= 20) { [quality, color, bgColor] = ['Excelente', 'text-green-600', 'bg-green-100']; }
+            else if (result.costPerThousand <= 28) { [quality, color, bgColor] = ['Bom', 'text-blue-600', 'bg-blue-100']; }
+            else { [quality, color, bgColor] = ['Caro', 'text-red-600', 'bg-red-100']; }
+            
+            DOMElements.resultContent.innerHTML = `
+                <div class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-lg text-center">
+                    <div class="text-sm opacity-90">Custo Final do Milheiro</div>
+                    <div class="text-4xl font-bold">R$ ${result.costPerThousand.toFixed(2).replace('.', ',')}</div>
+                    <div class="${bgColor} ${color} px-3 py-1 rounded-full inline-block mt-2 text-sm font-semibold">${quality}</div>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-gray-600">Investimento Total:</span><span class="font-bold text-lg">R$ ${result.totalCost.toFixed(2).replace('.', ',')}</span></div>
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-gray-600">Milhas Base:</span><span class="font-semibold">${result.totalBaseMiles.toLocaleString('pt-BR')}</span></div>
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-gray-600">Bônus (${result.transferBonus}%):</span><span class="font-semibold text-green-600">+${result.bonusMiles.toLocaleString('pt-BR')}</span></div>
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-gray-600">Total de Milhas Geradas:</span><span class="font-bold text-lg">${result.totalFinalMiles.toLocaleString('pt-BR')}</span></div>
+                </div>
+            `;
+            DOMElements.resultPlaceholder.classList.add('hidden');
+            DOMElements.resultArea.classList.remove('hidden');
+        }
+
+        function displayComparison(data) {
+            const isWorthIt = data.savings > 0;
+            const color = isWorthIt ? 'green' : 'red';
+            const icon = isWorthIt ? 'fa-check-circle' : 'fa-times-circle';
+            const text = isWorthIt ? 'Vale a pena usar milhas!' : 'Melhor comprar com dinheiro!';
+            const savingsText = isWorthIt 
+                ? `<div class="text-lg mt-1">Economia de <strong>R$ ${data.savings.toFixed(2).replace('.', ',')}</strong></div>`
+                : `<div class="text-lg mt-1">Ficaria <strong>R$ ${Math.abs(data.savings).toFixed(2).replace('.', ',')}</strong> mais caro</div>`;
+
+            DOMElements.comparisonResult.innerHTML = `
+                <div class="bg-${color}-500 text-white p-4 rounded-lg text-center h-full flex flex-col justify-center">
+                    <i class="fas ${icon} text-4xl"></i>
+                    <div class="text-xl font-bold mt-2">${text}</div>
+                    ${savingsText}
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4 text-center">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-xs text-gray-600">Custo com Milhas</div>
+                        <div class="text-xl font-bold">R$ ${data.costInReal.toFixed(2).replace('.', ',')}</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-xs text-gray-600">Preço em Dinheiro</div>
+                        <div class="text-xl font-bold">R$ ${data.cashValue.toFixed(2).replace('.', ',')}</div>
+                    </div>
+                </div>
+            `;
+            DOMElements.comparisonPlaceholder.classList.add('hidden');
+            DOMElements.comparisonResult.classList.remove('hidden');
+        }
+
+        // --- HISTORY FUNCTIONS ---
+        function saveToHistory(result) {
+            calculationHistory.unshift(result);
+            if (calculationHistory.length > 10) calculationHistory.pop();
+            localStorage.setItem('milesCostHistory', JSON.stringify(calculationHistory));
+        }
+
+        function loadHistory() {
+            if (calculationHistory.length === 0) {
+                DOMElements.historyList.innerHTML = `<div class="text-center py-8 text-gray-500"><i class="fas fa-inbox text-4xl mb-3"></i><p>Nenhum cálculo no histórico.</p></div>`;
+                return;
+            }
+            DOMElements.historyList.innerHTML = calculationHistory.map((calc, i) => `
+                <div class="border rounded-lg p-4 hover:shadow-md transition bg-white">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="text-sm text-gray-500 mb-1">${calc.date}</div>
+                            <div class="text-lg font-semibold">R$ ${calc.costPerThousand.toFixed(2).replace('.', ',')} / milheiro</div>
+                            <div class="text-sm text-gray-600 mt-1">${calc.totalFinalMiles.toLocaleString('pt-BR')} milhas por R$ ${calc.totalCost.toFixed(2).replace('.', ',')}</div>
+                        </div>
+                        <button onclick="removeFromHistory(${i})" class="text-gray-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function removeFromHistory(index) {
+            calculationHistory.splice(index, 1);
+            localStorage.setItem('milesCostHistory', JSON.stringify(calculationHistory));
+            loadHistory();
+            showToast('Item removido do histórico.', 'info');
+        }
+
+        function clearHistory() {
+            if (confirm('Tem certeza que deseja limpar todo o histórico?')) {
+                calculationHistory = [];
+                localStorage.removeItem('milesCostHistory');
+                loadHistory();
+                showToast('Histórico limpo com sucesso.', 'success');
+            }
+        }
+        
+        // --- PAGE INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Fill with an example on first visit
+            if (!localStorage.getItem('hasVisited')) {
+                localStorage.setItem('hasVisited', 'true');
+                DOMElements.clubCost.value = '502.80';
+                DOMElements.clubMiles.value = '12000';
+                DOMElements.shoppingMiles.value = '20000';
+                DOMElements.boughtMiles.value = '10000';
+                DOMElements.purchaseCostPerThousand.value = '35.00';
+                DOMElements.ticketMiles.value = '63600';
+                DOMElements.ticketFees.value = '197.00';
+                DOMElements.ticketCashValue.value = '1908.97';
+                showToast('Bem-vindo! Preenchemos um exemplo para você.', 'info');
+            }
+        });
+
+        // Close modal when clicking outside of it
+        document.getElementById('tutorialModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeTutorial();
+        });
+
+    </script>
+</body>
+</html>
